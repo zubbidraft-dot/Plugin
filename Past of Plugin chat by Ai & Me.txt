@@ -1,0 +1,532 @@
+
+
+Haan — yeh plugin ka main “publisher side” hoga. User sirf templates import karega, lekin aap/admin templates library mein upload karoge.
+Sabse practical workflow yeh hoga:
+Elementor mein section design
+        ↓
+Right click → Save as Template
+        ↓
+My Templates → Export
+        ↓
+.json file milegi
+        ↓
+Aapke plugin → Add New Template
+        ↓
+JSON + Preview Image + Details upload
+        ↓
+Template library mein live
+Elementor saved templates ko JSON format mein export karta hai, aur JSON ke andar page/template ka content, settings aur nested Elementor elements stored hote hain. 
+Aapke plugin mein admin side aisi hogi
+WordPress Dashboard mein:
+SRM Design Library
+│
+├── All Templates
+├── Add New Template
+├── Categories
+├── Collections
+└── Settings
+Add New Template open karne par:
+ADD NEW TEMPLATE
+────────────────────────────────
+
+Template Name
+[ Premium AI Hero             ]
+
+Template Type
+[ Section ▼ ]
+
+Category
+[ Hero ▼ ]
+
+Elementor Compatibility
+[ Elementor Free ▼ ]
+
+Template JSON
+[ Choose File: hero-01.json ]
+
+Preview Image
+[ Choose Image ]
+
+Live Preview URL
+[ https://.... ]
+
+Required Plugins
+☐ Elementor Pro
+☐ ElementsKit
+☐ Premium Addons
+
+Tags
+[ AI, SaaS, Dark, Hero ]
+
+Version
+[ 1.0 ]
+
+             [ PUBLISH ]
+Bas Publish karne ke baad template library mein card nazar aajaye:
+┌────────────────────────────┐
+│                            │
+│      PREVIEW IMAGE         │
+│                            │
+├────────────────────────────┤
+│ Premium AI Hero            │
+│                            │
+│ Hero • Elementor Free      │
+│                            │
+│ [ Preview ]    [ Insert ]  │
+└────────────────────────────┘
+________________________________________
+Section ko upload karne ka actual method
+Suppose aapne Elementor mein OrderMAK ka hero banaya.
+Step 1
+Elementor mein hero/container select karo.
+Right click:
+Save as Template
+Elementor officially sections/templates ko save karne aur phir Template Library se export karne ka workflow provide karta hai. 
+Example name:
+OrderMAK AI Hero 01
+Step 2
+Go to:
+Templates → Saved Templates
+Ya Elementor Template Library → My Templates.
+Template ke menu se:
+Export
+Elementor .json file download karega. 
+Example:
+ordermak-ai-hero-01.json
+Step 3
+Screenshot lo:
+ordermak-ai-hero-01.webp
+For example:
+1200 × 700
+Ye library card ka thumbnail hoga.
+Step 4
+Plugin:
+SRM Library → Add New
+Upload:
+JSON:
+ordermak-ai-hero-01.json
+
+Thumbnail:
+ordermak-ai-hero-01.webp
+Category:
+Hero
+Tags:
+AI
+Restaurant
+Technology
+Dark
+Modern
+Publish.
+Done.
+________________________________________
+Lekin main isko aur easy banaunga
+Har baar manually JSON download/upload karna thoda repetitive hai.
+Plugin ka advanced admin version bana sakte hain.
+Aap Elementor mein template save karo:
+OrderMAK Hero 01
+Phir WP dashboard:
+SRM Library
+→ Import From Elementor
+Aur screen:
+IMPORT FROM ELEMENTOR
+
+Select Saved Template
+
+[ OrderMAK Hero 01 ▼ ]
+
+Category
+[ Hero ]
+
+Thumbnail
+[ Upload ]
+
+Tags
+[ AI, Restaurant ]
+
+[ ADD TO SRM LIBRARY ]
+Is case mein aapko manually JSON file export karne ki bhi zarurat nahi padegi.
+Plugin Elementor ke saved template ka data le kar apni library entry create karega.
+Mere hisaab se yeh better admin experience hai.
+________________________________________
+Aur agar library multiple websites par use karni hai
+Yahan architecture thoda change hoga.
+Maan lo aapke paas:
+smartreachmarketinguae.com
+hai.
+Isko Master Library Server bana dete hain.
+Architecture:
+                    MASTER LIBRARY
+              smartreachmarketinguae.com
+
+                      ↓ API ↓
+
+       ┌──────────────┼──────────────┐
+       ↓              ↓              ↓
+
+ Client Site 1    Client Site 2    Client Site 3
+ Elementor       Elementor         Elementor
+Aap template sirf master website par upload karoge.
+Example:
+MASTER WEBSITE
+
+SRM Library
+    ↓
+Add Template
+    ↓
+JSON
+Thumbnail
+Metadata
+    ↓
+Publish
+Client websites wala plugin server se list load kare:
+GET /templates
+Result:
+127 Templates
+
+Hero
+About
+Services
+FAQ
+Contact
+Pages
+User click kare:
+INSERT
+Plugin JSON fetch kare aur Elementor mein import kar de.
+Elementor JSON templates ko individually aur ZIP form mein import kar sakta hai. 
+________________________________________
+Iska sabse bada benefit
+Suppose aapke 50 client websites hain.
+Initially:
+SRM Library
+72 Templates
+Aaj aap ek naya section banate ho:
+Premium Restaurant Hero #08
+Master server par upload kiya.
+Ab:
+SRM Library
+73 Templates
+50 client websites par automatically naya design show ho jayega.
+Plugin update karne ki zarurat nahi.
+________________________________________
+Library database mein actual entry
+Har template ko roughly aise represent karenge:
+Template ID:
+284
+
+Name:
+OrderMAK AI Hero 01
+
+Type:
+Section
+
+Category:
+Hero
+
+JSON:
+ordermak-ai-hero-01.json
+
+Thumbnail:
+ordermak-ai-hero-01.webp
+
+Required:
+Elementor Free
+
+Tags:
+AI
+Restaurant
+Kiosk
+Dark
+
+Created:
+13 August 2026
+
+Version:
+1.0
+Elementor template JSON itself includes fields such as template title/type/version, settings and content hierarchy. 
+________________________________________
+Images ka issue bhi solve karna hoga
+Ye important hai.
+Suppose section mein:
+Hero Background
+Team Image
+Icon
+use hua hai.
+Agar JSON mein image purani website ki URL:
+website-a.com/wp-content/uploads/hero.jpg
+reference kar rahi hai, client site ko wo assets correctly obtain karne honge. Elementor bhi cross-site template imports mein image-transfer problems document karta hai. 
+Isliye hamari library mein ideal template package hoga:
+Hero 01
+│
+├── template.json
+│
+├── thumbnail.webp
+│
+└── assets/
+    ├── hero.webp
+    ├── icon-01.svg
+    ├── icon-02.svg
+    └── pattern.webp
+Import ke waqt plugin:
+Download assets
+       ↓
+WordPress Media Library
+       ↓
+Generate new attachment IDs/URLs
+       ↓
+Replace URLs in Elementor JSON
+       ↓
+Insert design
+Ye professional implementation hoga.
+________________________________________
+Main aapke plugin mein 2 roles rakhunga
+Admin / Publisher
+Sirf aap:
+✓ Add template
+✓ Edit
+✓ Delete
+✓ Upload JSON
+✓ Upload screenshot
+✓ Set categories
+✓ Set requirements
+✓ Publish
+Plugin User
+Client:
+✓ Browse
+✓ Search
+✓ Preview
+✓ Favorite
+✓ Insert
+Client ko Add Template ka option hi nahi milega.
+________________________________________
+Best workflow
+Aapke liye main ye architecture recommend karta hoon:
+              SRM MASTER WEBSITE
+                     │
+           ┌─────────┴─────────┐
+           │                   │
+     ADMIN PUBLISHER        API SERVER
+           │                   │
+     Add Template              │
+     JSON + Image              │
+     Categories                │
+           │                   │
+           └─────────┬─────────┘
+                     ↓
+              SRM LIBRARY PLUGIN
+                     │
+           ┌─────────┴─────────┐
+           ↓                   ↓
+      Elementor           WP Dashboard
+      Library             Library
+           │
+           ↓
+        INSERT
+           │
+           ↓
+      CURRENT PAGE
+Aur later hum “Add to SRM Library” button bana sakte hain, jisse aap Elementor mein section banane ke baad directly master library ko publish kar do:
+Design Section
+      ↓
+Save Template
+      ↓
+ADD TO SRM LIBRARY
+      ↓
+Thumbnail + Category
+      ↓
+PUBLISH
+Phir JSON export/upload ka manual kaam almost khatam ho jayega.
+Yehi architecture main choose karunga: pehle V1 mein manual JSON uploader + central library, aur V2 mein Elementor se one-click “Publish to Library”.
+
+
+Done — SRM Design Library v2.1.0 is built.
+Download SRM Design Library v2.1.0
+What changed in 2.1
+1. Faster Elementor import
+•	Uses Elementor's save_item() path directly when available.
+•	Avoids creating a temporary JSON file and running the full file-import pipeline.
+•	Keeps the old importer as a compatibility fallback.
+Elementor's current Local Source exposes save_item() for saving a template directly into the local library. 
+2. Template caching
+•	Once a cloud template is downloaded, its JSON is cached locally for 24 hours.
+•	Cache is checksum-aware, so an updated template gets a new cache version.
+•	Re-importing the same template doesn't need to download the JSON again.
+3. Better import feedback
+•	Button immediately changes to “Importing…”
+•	Successful import reports the approximate import time.
+4. Version updated
+•	2.0.0 → 2.1.0
+•	Existing Master/Client architecture remains intact.
+How to test
+Don't uninstall 2.0 first.
+On your Client website:
+Plugins → Add New → Upload Plugin → srm-design-library-v2.1.0.zip
+Then:
+SRM Library → Cloud Library → Import to Elementor
+Test the same template twice.
+Ideally you'll see something like:
+First import:
+Cloud download + Elementor save
+→ 4.8 seconds
+
+Second import:
+Cached template + Elementor save
+→ 2.1 seconds
+The exact numbers will depend heavily on your hosting and Elementor setup.
+Most important comparison
+Please test the same template with V2.0 and V2.1 if you still have V2.0 available, and note:
+V2.0:
+Import time = ___ seconds
+
+V2.1:
+Import time = ___ seconds
+If V2.1 is still taking a long time, the next thing we'll investigate is Elementor's document save itself, rather than the cloud/network transfer. Elementor stores template content/settings as WordPress document data, so that part can become the bottleneck for large templates. 
+
+
+TEMPLATE IMPORT TO HO RHY HAIN FAST BUT PICTURES IMPORT NII HO RHY.
+
+
+Haan — ye expected issue hai. JSON/template fast import ho raha hai, lekin images abhi cloud asset migration nahi kar rahe.
+Current flow:
+Cloud JSON
+   ↓
+Elementor template
+   ↓
+✅ Layout imported
+❌ Images still reference original media IDs/URLs
+Humein V2.2 mein Asset Import Engine add karna chahiye.
+V2.2 ka correct flow
+MASTER WEBSITE
+     │
+     ├── template.json
+     │
+     ├── hero.jpg
+     ├── background.webp
+     ├── icon.svg
+     └── other assets
+     │
+     ↓
+CLIENT IMPORT
+     │
+     ├── Download JSON
+     │
+     ├── Detect image URLs
+     │
+     ├── Download images
+     │
+     ├── Add to WP Media Library
+     │
+     ├── Generate new attachment IDs
+     │
+     ├── Replace old image IDs/URLs
+     │
+     └── Import Elementor template
+Isse kya hoga?
+Agar Master par section mein:
+Hero Background
+Team Image
+Product Image
+Icon
+hain, Client import ke baad woh images client ki apni Media Library mein aa jayengi.
+Phir template independent ho jayega:
+MASTER
+hero.jpg
+   ↓
+CLIENT
+wp-content/uploads/.../hero.jpg
+Client ki website Master website ki images par dependent nahi rahegi.
+Ek important optimization
+Hum sirf actual used assets download karenge.
+Agar template mein 3 images hain:
+3 images → download
+poori Master Media Library nahi.
+Aur agar same image already client site par imported hai:
+Image already exists
+        ↓
+Don't download again
+Isse import unnecessarily slow nahi hoga.
+SVG bhi separately handle karna hoga
+Elementor templates mein SVG icons/logos aa sakte hain. Isliye V2.2 mein:
+•	JPG
+•	JPEG
+•	PNG
+•	WebP
+•	GIF
+•	SVG
+ko properly handle karna chahiye, subject to WordPress's allowed upload/security rules.
+Main V2.2 mein ye banaunga
+Cloud Asset Migration Engine
+✓ Detect image URLs
+✓ Download remote assets
+✓ Add to Media Library
+✓ Detect duplicates
+✓ Generate attachment IDs
+✓ Replace Elementor image IDs
+✓ Replace Elementor URLs
+✓ Background images
+✓ Image widgets
+✓ Image galleries
+✓ SVG handling
+✓ Asset error reporting
+✓ Import progress
+Aur sabse important:
+Template pehle fast import ho aur assets uske baad properly resolve hon.
+Isse V2.1 ka fast import performance unnecessarily sacrifice nahi karenge.
+Next build: SRM Design Library v2.2.0 — Cloud Template + Image/Asset Migration.
+
+
+START THE BUILD
+
+
+V2.2.0 build complete hai.
+Download SRM Design Library v2.2.0
+V2.2 mein main change
+Ab cloud import ka flow:
+MASTER
+Elementor Template
+   │
+   ├── JSON
+   ├── Image IDs
+   ├── Image URLs
+   └── Background Images
+          ↓
+       CLOUD
+          ↓
+       CLIENT
+          │
+          ├── Download assets
+          ├── Add to Media Library
+          ├── Detect duplicates
+          ├── Generate local attachment IDs
+          ├── Replace Elementor image IDs
+          └── Replace image URLs
+                 ↓
+          Elementor Template
+Ye bhi included hai
+•	⚡ V2.1 ka fast Elementor import retained
+•	🖼️ Image/media migration
+•	🔄 Existing imported assets reuse honge
+•	🗂️ Images Client ki Media Library mein save hongi
+•	🔗 Elementor image IDs/URLs local IDs/URLs se replace honge
+•	🎨 Background-image URLs bhi replace karne ki koshish hogi
+•	🔐 Master/Client access-key system retained
+•	☁️ Cloud caching retained
+•	📦 Same plugin architecture retained
+Ab testing ka sabse important case
+Master par ek template banao jisme kam az kam:
+1.	Image widget
+2.	Background image
+3.	Button/text
+4.	Agar possible ho to 2–3 different images
+Phir Client se:
+SRM Library → Cloud Library → Import to Elementor
+Check karo:
+✓ Template imported
+✓ Images visible
+✓ Background visible
+✓ Images Client Media Library mein hain
+✓ Elementor image settings mein local image IDs hain
+✓ Original Master image URLs par dependency nahi
+Same template ko second time bhi import karna — dekhna hai ke duplicate images create nahi hotin.
+Ek limitation abhi intentionally documented hai: agar Elementor design mein external image URL hai jiska WordPress attachment ID nahi hai, V2.2 usay automatically Media Library mein mirror nahi karega. Normal WordPress-uploaded Elementor images ke liye asset migration target ki gayi hai.
+Pehle V2.2 ko real website par test karo. Agar images import ho jati hain, phir hum next issue—fonts, SVGs, icons aur other Elementor assets—ko properly handle karenge.
+
