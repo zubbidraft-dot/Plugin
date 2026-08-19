@@ -631,7 +631,16 @@ final class SRM_Cloud_Library {
             $this->redirect_notice( 'srm-design-library-cloud', 'error', $remote->get_error_message() );
         }
 
-        $encoded = wp_json_encode( $remote['template'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        // V2.2: Process remote images before import
+        $template_data = $remote['template'];
+        $image_migration_result = $this->process_remote_images( $template_data );
+        
+        if ( is_wp_error( $image_migration_result ) ) {
+            // Log error but continue with import (fallback to remote URLs)
+            error_log( 'SRM Cloud Library - Image migration warning: ' . $image_migration_result->get_error_message() );
+        }
+
+        $encoded = wp_json_encode( $template_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
         if ( false === $encoded ) {
             $this->redirect_notice( 'srm-design-library-cloud', 'error', 'Could not encode the cloud Elementor JSON.' );
         }
@@ -674,6 +683,12 @@ final class SRM_Cloud_Library {
                     wp_set_object_terms( $id, sanitize_text_field( $remote['category']['name'] ), 'elementor_library_category', true );
                     update_post_meta( $id, '_srmdl_cloud_source', untrailingslashit( (string) get_option( self::OPT_MASTER_URL, '' ) ) );
                     update_post_meta( $id, '_srmdl_cloud_remote_id', $remote_id );
+                    
+                    // V2.2: Store image migration info
+                    if ( ! is_wp_error( $image_migration_result ) && ! empty( $image_migration_result['migrated_count'] ) ) {
+                        update_post_meta( $id, '_srmdl_images_migrated', $image_migration_result['migrated_count'] );
+                        update_post_meta( $id, '_srmdl_migration_status', 'completed' );
+                    }
                 }
             }
         } catch ( \Throwable $e ) {
@@ -683,5 +698,275 @@ final class SRM_Cloud_Library {
         @unlink( $tmp );
 
         $this->redirect_notice( 'srm-design-library-cloud', 'imported' );
+    }
+
+    /**
+     * V2.2: Process remote images in template data
+     * Downloads images from remote URLs and replaces them with local media library IDs
+     * 
+     * @param array &$template_data Reference to template data (modified in place)
+     * @return array|WP_Error Migration result or error
+     */
+    private function process_remote_images( &$template_data ) {
+        if ( ! isset( $template_data['content'] ) || ! is_array( $template_data['content'] ) ) {
+            return new \WP_Error( 'invalid_template', 'Template content is invalid' );
+        }
+
+        $migrated_urls = [];
+        $migrated_count = 0;
+        $errors = [];
+
+        // Recursively scan template content for image URLs
+        $this->scan_and_migrate_images( $template_data['content'], $migrated_urls, $migrated_count, $errors );
+
+        return [
+            'migrated_count' => $migrated_count,
+            'migrated_urls'  => $migrated_urls,
+            'errors'         => $errors,
+        ];
+    }
+
+    /**
+     * V2.2: Recursively scan and migrate images in template structure
+     */
+    private function scan_and_migrate_images( &$data, &$migrated_urls, &$count, &$errors ) {
+        if ( is_array( $data ) ) {
+            foreach ( $data as $key => &$value ) {
+                // Check for image URL fields
+                if ( is_string( $value ) && $this->is_image_url( $value ) ) {
+                    // Handle different field types
+                    if ( $key === 'url' || $key === 'src' || $key === 'background_image_url' || 
+                         strpos( $key, 'image' ) !== false || strpos( $key, 'background' ) !== false ) {
+                        $new_attachment_id = $this->download_and_save_image( $value, $migrated_urls );
+                        
+                        if ( $new_attachment_id && ! is_wp_error( $new_attachment_id ) ) {
+                            // Replace URL with attachment ID where appropriate
+                            if ( $key === 'id' || strpos( $key, '_id' ) !== false ) {
+                                $value = $new_attachment_id;
+                            } else {
+                                // Update URL to local URL
+                                $local_url = wp_get_attachment_url( $new_attachment_id );
+                                if ( $local_url ) {
+                                    $value = $local_url;
+                                    $migrated_urls[ $value ] = $new_attachment_id;
+                                }
+                            }
+                            $count++;
+                        } elseif ( is_wp_error( $new_attachment_id ) ) {
+                            $errors[] = $new_attachment_id->get_error_message();
+                        }
+                    }
+                } else {
+                    // Recurse into nested arrays
+                    $this->scan_and_migrate_images( $value, $migrated_urls, $count, $errors );
+                }
+            }
+        }
+    }
+
+    /**
+     * V2.2: Check if a string is a valid image URL
+     */
+    private function is_image_url( $url ) {
+        if ( ! is_string( $url ) || empty( $url ) ) {
+            return false;
+        }
+        
+        // Skip already local URLs
+        if ( strpos( $url, home_url() ) === 0 ) {
+            return false;
+        }
+
+        // Check for valid URL
+        if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+            return false;
+        }
+
+        // Check for image extensions or patterns
+        $image_extensions = [ 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico' ];
+        $url_lower = strtolower( $url );
+        
+        // Check extension
+        foreach ( $image_extensions as $ext ) {
+            if ( strpos( $url_lower, '.' . $ext ) !== false || strpos( $url_lower, '.' . $ext . '?' ) !== false ) {
+                return true;
+            }
+        }
+
+        // Check for common image URL patterns (WordPress uploads, etc.)
+        if ( strpos( $url_lower, '/uploads/' ) !== false && strpos( $url_lower, '/wp-content/' ) !== false ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * V2.2: Download remote image and save to Media Library
+     * Implements duplicate detection to avoid re-uploading same images
+     */
+    private function download_and_save_image( $image_url, &$existing_migrations = [] ) {
+        // Check if already migrated in this session
+        if ( isset( $existing_migrations[ $image_url ] ) ) {
+            return $existing_migrations[ $image_url ];
+        }
+
+        // Check for existing attachment by URL (duplicate detection)
+        $existing_id = $this->find_existing_attachment_by_url( $image_url );
+        if ( $existing_id ) {
+            $existing_migrations[ $image_url ] = $existing_id;
+            return $existing_id;
+        }
+
+        // Validate image URL
+        if ( ! $this->is_image_url( $image_url ) ) {
+            return new \WP_Error( 'invalid_image_url', 'Invalid image URL: ' . $image_url );
+        }
+
+        // Supported MIME types
+        $allowed_mime_types = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/gif'  => 'gif',
+            'image/webp' => 'webp',
+            'image/svg+xml' => 'svg',
+        ];
+
+        try {
+            // Download image
+            $response = wp_safe_remote_get( $image_url, [
+                'timeout'     => 30,
+                'redirection' => 5,
+                'user-agent'  => 'SRM-Design-Library/' . ( defined( 'SRMDL_VERSION' ) ? SRMDL_VERSION : '2.2' ) . '; Image Migration',
+            ] );
+
+            if ( is_wp_error( $response ) ) {
+                return new \WP_Error( 'download_failed', 'Failed to download image: ' . $response->get_error_message() );
+            }
+
+            $status_code = wp_remote_retrieve_response_code( $response );
+            if ( 200 !== $status_code ) {
+                return new \WP_Error( 'http_error', 'HTTP error ' . $status_code . ' downloading image' );
+            }
+
+            $image_data = wp_remote_retrieve_body( $response );
+            if ( empty( $image_data ) ) {
+                return new \WP_Error( 'empty_image', 'Downloaded image is empty' );
+            }
+
+            // Get MIME type from response headers or file content
+            $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+            $mime_type = ! empty( $content_type ) ? explode( ';', $content_type )[0] : '';
+            
+            // Fallback: detect MIME type from file content
+            if ( empty( $mime_type ) || ! isset( $allowed_mime_types[ $mime_type ] ) ) {
+                $temp_file = tmpfile();
+                if ( $temp_file ) {
+                    fwrite( $temp_file, $image_data );
+                    $meta_data = stream_get_meta_data( $temp_file );
+                    $detected_mime = mime_content_type( $meta_data['uri'] );
+                    fclose( $temp_file );
+                    
+                    if ( $detected_mime && isset( $allowed_mime_types[ $detected_mime ] ) ) {
+                        $mime_type = $detected_mime;
+                    }
+                }
+            }
+
+            if ( empty( $mime_type ) || ! isset( $allowed_mime_types[ $mime_type ] ) ) {
+                // Try to guess from URL
+                $url_path = parse_url( $image_url, PHP_URL_PATH );
+                $extension = strtolower( pathinfo( $url_path, PATHINFO_EXTENSION ) );
+                
+                foreach ( $allowed_mime_types as $mime => $ext ) {
+                    if ( $extension === $ext ) {
+                        $mime_type = $mime;
+                        break;
+                    }
+                }
+            }
+
+            if ( empty( $mime_type ) || ! isset( $allowed_mime_types[ $mime_type ] ) ) {
+                return new \WP_Error( 'unsupported_format', 'Unsupported image format: ' . $mime_type );
+            }
+
+            $extension = $allowed_mime_types[ $mime_type ];
+
+            // Generate unique filename
+            $filename = basename( parse_url( $image_url, PHP_URL_PATH ) );
+            if ( empty( $filename ) || '.' === $filename[0] ) {
+                $filename = 'srm-migrated-image-' . time() . '-' . wp_generate_password( 6, false ) . '.' . $extension;
+            } else {
+                $filename = sanitize_file_name( $filename );
+                if ( pathinfo( $filename, PATHINFO_EXTENSION ) !== $extension ) {
+                    $filename = pathinfo( $filename, PATHINFO_FILENAME ) . '.' . $extension;
+                }
+            }
+
+            // Upload to WordPress
+            $upload = wp_upload_bits( $filename, null, $image_data );
+            if ( ! empty( $upload['error'] ) ) {
+                return new \WP_Error( 'upload_error', 'Upload error: ' . $upload['error'] );
+            }
+
+            // Create attachment post
+            $attachment = [
+                'post_title'   => pathinfo( $filename, PATHINFO_FILENAME ),
+                'post_content' => '',
+                'post_status'  => 'inherit',
+                'post_mime_type' => $mime_type,
+            ];
+
+            $attachment_id = wp_insert_attachment( $attachment, $upload['file'] );
+            if ( is_wp_error( $attachment_id ) ) {
+                @unlink( $upload['file'] );
+                return $attachment_id;
+            }
+
+            // Generate metadata
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            $attach_data = wp_generate_attachment_metadata( $attachment_id, $upload['file'] );
+            wp_update_attachment_metadata( $attachment_id, $attach_data );
+
+            // Store original URL for future reference
+            update_post_meta( $attachment_id, '_srmdl_original_url', $image_url );
+            update_post_meta( $attachment_id, '_srmdl_migrated_at', current_time( 'timestamp' ) );
+
+            $existing_migrations[ $image_url ] = $attachment_id;
+            return $attachment_id;
+
+        } catch ( \Exception $e ) {
+            return new \WP_Error( 'migration_exception', 'Image migration exception: ' . $e->getMessage() );
+        }
+    }
+
+    /**
+     * V2.2: Find existing attachment by original URL meta or GUID
+     * Prevents duplicate uploads of the same image
+     */
+    private function find_existing_attachment_by_url( $image_url ) {
+        global $wpdb;
+
+        // First check by stored original URL meta
+        $attachment_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_srmdl_original_url' AND meta_value = %s LIMIT 1",
+            $image_url
+        ) );
+
+        if ( $attachment_id ) {
+            return absint( $attachment_id );
+        }
+
+        // Fallback: check by GUID (less reliable but worth trying)
+        $attachment_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND guid = %s LIMIT 1",
+            $image_url
+        ) );
+
+        if ( $attachment_id ) {
+            return absint( $attachment_id );
+        }
+
+        return false;
     }
 }
