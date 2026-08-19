@@ -1,0 +1,56 @@
+{
+  "title": "SRM Sample Hero",
+  "type": "page",
+  "version": "0.4",
+  "page_settings": [],
+  "content": [
+    {
+      "id": "1a2b3c4d",
+      "elType": "container",
+      "isInner": false,
+      "settings": {
+        "content_width": "boxed",
+        "min_height": {"unit": "px", "size": 420, "sizes": []},
+        "justify_content": "center",
+        "background_background": "classic",
+        "background_color": "#111827",
+        "padding": {"unit": "px", "top": "72", "right": "40", "bottom": "72", "left": "40", "isLinked": false}
+      },
+      "elements": [
+        {
+          "id": "5e6f7a8b",
+          "elType": "widget",
+          "widgetType": "heading",
+          "settings": {
+            "title": "Build Faster with Your Own Design Library",
+            "header_size": "h1",
+            "title_color": "#FFFFFF"
+          },
+          "elements": []
+        },
+        {
+          "id": "9c0d1e2f",
+          "elType": "widget",
+          "widgetType": "text-editor",
+          "settings": {
+            "editor": "<p>Save reusable Elementor designs once and import them whenever you need them.</p>",
+            "text_color": "#D1D5DB"
+          },
+          "elements": []
+        },
+        {
+          "id": "3a4b5c6d",
+          "elType": "widget",
+          "widgetType": "button",
+          "settings": {
+            "text": "Explore Library",
+            "link": {"url": "#", "is_external": "", "nofollow": "", "custom_attributes": ""},
+            "button_text_color": "#FFFFFF",
+            "background_color": "#5B5BD6"
+          },
+          "elements": []
+        }
+      ]
+    }
+  ]
+}
